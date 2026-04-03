@@ -1,51 +1,27 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const errorParam = params.get("error");
   const errorMessages: Record<string, string> = {
     not_admin: "Access denied. This tool requires superadmin or matrix admin privileges.",
     unauthorized: "Your session expired. Please sign in again.",
+    auth_callback_failed: "Authentication failed. Please try again.",
   };
 
-  useEffect(() => {
-    // If already logged in, redirect
+  async function handleSignIn() {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) router.replace("/flavors");
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
-  }, [router]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    router.push("/flavors");
-    router.refresh();
   }
 
   return (
@@ -96,7 +72,7 @@ function LoginForm() {
         </div>
 
         {/* Error banner */}
-        {(error || errorParam) && (
+        {errorParam && (
           <div
             style={{
               color: "var(--error)",
@@ -108,95 +84,36 @@ function LoginForm() {
               marginBottom: "1.25rem",
             }}
           >
-            {error ?? errorMessages[errorParam!] ?? errorParam}
+            {errorMessages[errorParam] ?? errorParam}
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+        <button
+          onClick={handleSignIn}
+          style={{
+            width: "100%",
+            padding: "0.7rem",
+            fontSize: "0.95rem",
+            fontWeight: 700,
+            color: "#fff",
+            background: "#4285F4",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            boxShadow: "0 0 15px rgba(66,133,244,0.3)",
+            transition: "box-shadow 0.2s, transform 0.1s",
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLButtonElement).style.boxShadow =
+              "0 0 25px rgba(66,133,244,0.5)";
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLButtonElement).style.boxShadow =
+              "0 0 15px rgba(66,133,244,0.3)";
+          }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-            <label
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                letterSpacing: "0.05em",
-              }}
-            >
-              EMAIL
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="you@example.com"
-              style={{
-                width: "100%",
-                padding: "0.65rem 0.85rem",
-                fontSize: "0.9rem",
-                color: "var(--text)",
-                background: "var(--bg-input)",
-                border: "1px solid var(--border)",
-                borderRadius: "8px",
-                outline: "none",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-            <label
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: "var(--text-muted)",
-                letterSpacing: "0.05em",
-              }}
-            >
-              PASSWORD
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-              placeholder="••••••••"
-              style={{
-                width: "100%",
-                padding: "0.65rem 0.85rem",
-                fontSize: "0.9rem",
-                color: "var(--text)",
-                background: "var(--bg-input)",
-                border: "1px solid var(--border)",
-                borderRadius: "8px",
-                outline: "none",
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: "0.7rem",
-              fontSize: "0.95rem",
-              fontWeight: 700,
-              color: loading ? "var(--text-dim)" : "var(--accent-fg)",
-              background: loading ? "var(--border)" : "var(--accent)",
-              border: "none",
-              borderRadius: "8px",
-              cursor: loading ? "default" : "pointer",
-              transition: "all 0.15s",
-              marginTop: "0.25rem",
-            }}
-          >
-            {loading ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
+          Sign in with Google
+        </button>
       </div>
     </main>
   );
